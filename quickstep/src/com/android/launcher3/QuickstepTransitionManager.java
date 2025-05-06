@@ -180,6 +180,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+import com.android.launcher3.blurAminFactory.blurAminFactory;
 /**
  * Manages the opening and closing app transitions from Launcher
  */
@@ -525,10 +526,17 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
      * @param startDelay       Start delay duration.
      * @param skipAllAppsScale True if we want to avoid scaling All Apps
      */
+    private void startBlur() {
+        blurAminFactory.getInstance(this.mLauncher.getApplicationContext()).startBlurAnimation((ViewGroup) this.mLauncher.findViewById(R.id.drag_layer), 350L);
+    }
+
     private Pair<AnimatorSet, Runnable> getLauncherContentAnimator(boolean isAppOpening,
             int startDelay, boolean skipAllAppsScale) {
         AnimatorSet launcherAnimator = new AnimatorSet();
         Runnable endListener;
+        if(isAppOpening) {
+            startBlur();
+        }
 
         float[] alphas = isAppOpening
                 ? new float[]{1, 0}
