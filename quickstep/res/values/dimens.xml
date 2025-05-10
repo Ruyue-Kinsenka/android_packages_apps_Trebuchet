@@ -527,4 +527,12 @@
     <!-- Max width of the split instructions view -->
     <dimen name="split_instructions_view_max_width">220dp</dimen>
 
+    <!-- Test -->
+    <!-- 间距 -->
+    <dimen name="overview_adjacent_page_offset">48dp</dimen>
+    <!-- 上层隐隐 -->
+    <dimen name="overview_card_elevation_current">8dp</dimen>
+    <!-- 下层阴影 -->
+    <dimen name="overview_card_elevation_adjacent">2dp</dimen>
+
 </resources>

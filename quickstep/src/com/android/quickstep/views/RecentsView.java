@@ -2174,6 +2174,11 @@ public abstract class RecentsView<
         }
     }
 
+    public void setIosStackCardsOffset(int offsetPx) {
+        ADJACENT_PAGE_HORIZONTAL_OFFSET.set(this, (float) offsetPx);
+    }
+
+
     @Override
     public void setInsets(Rect insets) {
         mInsets.set(insets);
@@ -2186,6 +2191,9 @@ public abstract class RecentsView<
             mActionsView.updateHiddenFlags(HIDDEN_ACTIONS_IN_MENU, dp.isTablet);
         }
         setPageSpacing(dp.overviewPageSpacing);
+        // Add
+        setIosStackCardsOffset(
+                getResources().getDimensionPixelSize(R.dimen.overview_adjacent_page_offset));
 
         // Propagate DeviceProfile change event.
         runActionOnRemoteHandles(
@@ -4923,6 +4931,14 @@ public abstract class RecentsView<
                         ((TaskView) child).getSecondaryTaskOffsetTranslationProperty();
                 translationPropertyY.set(child, totalTranslationY);
             }
+            boolean isCurrent = (i == modalMidpoint);
+            float scale = isCurrent ? 1f : 0.9f;
+            child.setScaleX(scale);
+            child.setScaleY(scale);
+            child.setAlpha(isCurrent ? 1f : 0.5f);
+            child.setElevation(isCurrent
+                    ? getResources().getDimensionPixelSize(R.dimen.overview_card_elevation_current)
+                    : getResources().getDimensionPixelSize(R.dimen.overview_card_elevation_adjacent));
         }
         updateCurveProperties();
     }
