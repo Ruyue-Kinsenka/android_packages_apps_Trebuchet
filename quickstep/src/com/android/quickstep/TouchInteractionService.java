@@ -130,6 +130,19 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/*
+ * Ext add
+ * support long press to recognize screen text
+ */
+import android.os.Handler;
+import android.os.Looper;
+
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.content.Intent; 
+import android.content.ComponentName;
+import android.os.SystemProperties;
+
 /**
  * Service connected by system-UI for handling touch interaction.
  */
@@ -139,10 +152,39 @@ public class TouchInteractionService extends Service {
 
     private static final String TAG = "TouchInteractionService";
 
+    /*
+     * Ext add
+     * support long press to support long press to recognize screen text
+     */
+    private static final String TAG2 = "LongPress";
+    private static final long HANDLE_LONG_PRESS_TIMEOUT = 500;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private boolean mInterceptHandleLongPress;
+    private static final String EXTHM_OCR = "org.exthm.rmoonorc";
+    private static final String EXTHM_OCR_ACTIVITY = "org.exthm.rmoonorc.MainActivity";
+
     private static final ConstantItem<Boolean> HAS_ENABLED_QUICKSTEP_ONCE = backedUpItem(
             "launcher.has_enabled_quickstep_once", false, EncryptionType.ENCRYPTED);
 
     private final TISBinder mTISBinder = new TISBinder(this);
+
+    /*
+     * Ext add
+     * support long press to support long press to recognize screen text
+     * enable location
+     */ 
+    private boolean isInHandleRegion(MotionEvent e) {
+//        Log.d(TAG2, "init");
+        float density = getResources().getDisplayMetrics().density;
+        int defaultHeight = 7; 
+        int propHeight = SystemProperties.getInt("persist.exthm.screenocr_high", defaultHeight);
+        int height = (int)(propHeight * density); 
+        int bottomOffset = (int)(8 * density);
+        float y = e.getY();
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+        return y >= screenH - bottomOffset - height
+            && y <= screenH - bottomOffset;
+    }
 
     /**
      * Local IOverviewProxy implementation with some methods for local components
@@ -863,7 +905,67 @@ public class TouchInteractionService extends Service {
         cancelEvent.recycle();
     }
 
-    private void onInputEvent(InputEvent ev) {
+    /*
+     * Ext add
+     * support long press to support long press to recognize screen text
+     */
+
+    public void onInputEvent(InputEvent ev) {
+//        Log.d(TAG2, "onInputEvent(InputEvent ev)");
+        if (!(ev instanceof MotionEvent)) 
+            return;
+
+        MotionEvent e = (MotionEvent) ev;
+        int action = e.getActionMasked();
+
+        switch (action) {
+            case MotionEvent.ACTION_DOWN:
+            if (isInHandleRegion(e)) {
+                mInterceptHandleLongPress = true;
+                mHandler.postDelayed(mHandleLongPressRunnable, HANDLE_LONG_PRESS_TIMEOUT);
+                }
+                break;
+            case MotionEvent.ACTION_MOVE:
+                if (!isInHandleRegion(e)) {
+                    mHandler.removeCallbacks(mHandleLongPressRunnable);
+                }
+                break;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                mHandler.removeCallbacks(mHandleLongPressRunnable);
+                break;
+        }
+
+        if (mInterceptHandleLongPress) {
+            mInterceptHandleLongPress = false;
+            return;
+            }
+        superOnInputEvent(ev);
+    }
+
+    private final Runnable mHandleLongPressRunnable = new Runnable() {
+        @Override
+        public void run() {
+//            Log.d(TAG2, "start app");
+            Intent intent = new Intent();
+            intent.setComponent(new ComponentName(
+                EXTHM_OCR,
+                EXTHM_OCR_ACTIVITY));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            boolean isScreenOCRenable = SystemProperties.getBoolean("persist.exthm.screenocr", false);
+            if(isScreenOCRenable){
+                startActivity(intent);
+            }
+            
+        }
+    };
+
+    /*
+     * Ext change
+     * support long press to support long press to recognize screen text
+     */
+
+    private void superOnInputEvent(InputEvent ev) {
         if (!(ev instanceof MotionEvent)) {
             ActiveGestureProtoLogProxy.logUnknownInputEvent(ev.toString());
             return;
