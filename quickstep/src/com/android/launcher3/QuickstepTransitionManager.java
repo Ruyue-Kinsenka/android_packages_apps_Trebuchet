@@ -180,6 +180,26 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+/*
+ * Ext add
+ * support blur animation
+ */
+import android.view.animation.Interpolator;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
+import android.os.Build;
+import android.widget.FrameLayout;
+import android.view.View;
+import android.view.ViewGroup;
+import android.os.SystemProperties;
+
+class ExponentialEaseOutInterpolator implements Interpolator {
+    @Override
+    public float getInterpolation(float input) {
+        return (float) (1 - Math.pow(2, -10 * input));
+    }
+}
+
 /**
  * Manages the opening and closing app transitions from Launcher
  */
@@ -1087,14 +1107,15 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
     private ObjectAnimator getBackgroundAnimator() {
         // When launching an app from overview that doesn't map to a task, we still want to just
         // blur the wallpaper instead of the launcher surface as well
+        boolean isAllowBlurLauncher = SystemProperties.getBoolean("persist.exthm.launcherblur", false);
         boolean allowBlurringLauncher = mLauncher.getStateManager().getState() != OVERVIEW
                 && BlurUtils.supportsBlursOnWindows();
-
+ 
         LaunchDepthController depthController = new LaunchDepthController(mLauncher);
         ObjectAnimator backgroundRadiusAnim = ObjectAnimator.ofFloat(depthController.stateDepth,
                         MULTI_PROPERTY_VALUE, BACKGROUND_APP.getDepth(mLauncher))
                         .setDuration(APP_LAUNCH_DURATION);
-
+    
         if (allowBlurringLauncher) {
             // Create a temporary effect layer, that lives on top of launcher, so we can apply
             // the blur to it. The EffectLayer will be fullscreen, which will help with caching
@@ -1106,18 +1127,11 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
             SurfaceControl parent = viewRootImpl != null
                     ? viewRootImpl.getSurfaceControl()
                     : null;
-            SurfaceControl dimLayer = new SurfaceControl.Builder()
-                    .setName("Blur layer")
-                    .setParent(parent)
-                    .setOpaque(false)
-                    .setHidden(false)
-                    .setEffectLayer()
-                    .build();
-
-            backgroundRadiusAnim.addListener(AnimatorListeners.forEndCallback(() ->
-                    new SurfaceControl.Transaction().remove(dimLayer).apply()));
+            if (parent != null && isAllowBlurLauncher) {
+                setupDynamicBlurEffect(backgroundRadiusAnim, parent);
+            }
         }
-
+    
         backgroundRadiusAnim.addListener(
                 AnimatorListeners.forEndCallback(() -> {
                     // reset the depth to match the main depth controller's depth
@@ -1125,8 +1139,59 @@ public class QuickstepTransitionManager implements OnDeviceProfileChangeListener
                             .setValue(mLauncher.getDepthController().stateDepth.getValue());
                     depthController.dispose();
                 }));
-
+    
         return backgroundRadiusAnim;
+    }
+    /*
+     * Ext add
+     * Allow launcher blur amin picked from kde-yyds
+     */
+    
+    private void setupDynamicBlurEffect(ObjectAnimator animator, SurfaceControl parentSurface) {
+        SurfaceControl blurLayer = new SurfaceControl.Builder()
+                .setName("Blur Layer")
+                .setParent(parentSurface)
+                .setOpaque(false)
+                .setEffectLayer()
+                .build();
+    
+        SurfaceControl.Transaction transaction = new SurfaceControl.Transaction();
+    
+        animator.addUpdateListener(animation -> {
+            if (mLauncher.getStateManager().getState() == LauncherState.ALL_APPS) {
+                return;
+            }
+            float animatedValue = (float) animation.getAnimatedValue();
+            float blurRadius = Math.min(100f, animatedValue * 100f);
+    
+            if (blurLayer != null && blurLayer.isValid()) {
+                transaction.setBackgroundBlurRadius(blurLayer, (int) blurRadius);
+                transaction.setAlpha(blurLayer, 1f);
+                transaction.show(blurLayer);
+                transaction.apply();
+            }
+        });
+    
+        animator.setInterpolator(new ExponentialEaseOutInterpolator());
+    
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                cleanupBlurLayer(blurLayer, transaction);
+            }
+    
+            @Override
+            public void onAnimationCancel(Animator animation) {
+                cleanupBlurLayer(blurLayer, transaction);
+            }
+    
+            private void cleanupBlurLayer(SurfaceControl blurLayer, SurfaceControl.Transaction transaction) {
+                if (blurLayer != null && blurLayer.isValid()) {
+                    transaction.remove(blurLayer).apply();
+                    blurLayer.release();
+                }
+            }
+        });
     }
 
     /**
