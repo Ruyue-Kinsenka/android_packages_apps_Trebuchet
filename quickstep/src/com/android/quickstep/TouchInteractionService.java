@@ -168,6 +168,24 @@ public class TouchInteractionService extends Service {
 
     private final TISBinder mTISBinder = new TISBinder(this);
 
+    //Ext add :Swipe to the top-right gesture
+    private static final String TAG3 = "TopRightGesture";
+    private boolean mIsSlidingFromHandle = false;
+    private boolean mHasTopRigintOnce = false;
+
+    private boolean isInTopRightCorner(MotionEvent e) {
+        DisplayMetrics dm = getResources().getDisplayMetrics();
+        int screenWidth = dm.widthPixels;
+        int screenHeight = dm.heightPixels;
+        float rightRegionWidth = screenWidth * 0.2f;
+        float topRegionHeight = screenHeight * 0.2f;
+
+        float x = e.getX();
+        float y = e.getY();
+        return x >= (screenWidth - rightRegionWidth) && y <= topRegionHeight;
+    }
+    
+
     /*
      * Ext add
      * support long press to support long press to recognize screen text
@@ -908,6 +926,7 @@ public class TouchInteractionService extends Service {
     /*
      * Ext add
      * support long press to support long press to recognize screen text
+     * Swipe to the top-right gesture
      */
 
     public void onInputEvent(InputEvent ev) {
@@ -923,9 +942,17 @@ public class TouchInteractionService extends Service {
             if (isInHandleRegion(e)) {
                 mInterceptHandleLongPress = true;
                 mHandler.postDelayed(mHandleLongPressRunnable, HANDLE_LONG_PRESS_TIMEOUT);
+                mIsSlidingFromHandle = true;
+                mHasTopRightOnce = false;
                 }
                 break;
             case MotionEvent.ACTION_MOVE:
+                if (mIsSlidingFromHandle && !mHasTopRightOnce) {
+                if (isInTopRightCorner(e)) {
+                    Log.d(TAG3, "Swipe to the top-right");
+                    mHasTopRightOnce = true;
+                }
+            }
                 if (!isInHandleRegion(e)) {
                     mHandler.removeCallbacks(mHandleLongPressRunnable);
                 }
@@ -933,6 +960,8 @@ public class TouchInteractionService extends Service {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 mHandler.removeCallbacks(mHandleLongPressRunnable);
+                mIsSlidingFromHandle = false;
+                mHasTopRightOnce = false;
                 break;
         }
 
