@@ -177,7 +177,7 @@ public class TouchInteractionService extends Service {
 //        Log.d(TAG2, "init");
         float density = getResources().getDisplayMetrics().density;
         int defaultHeight = 7; 
-        int propHeight = SystemProperties.getInt("persist.exthm.screenocr_high", defaultHeight);
+        int propHeight = SystemProperties.getInt("persist.vendor.avium.screenocr_high", defaultHeight);
         int height = (int)(propHeight * density); 
         int bottomOffset = (int)(8 * density);
         float y = e.getY();
@@ -952,7 +952,7 @@ public class TouchInteractionService extends Service {
                 EXTHM_OCR,
                 EXTHM_OCR_ACTIVITY));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            boolean isScreenOCRenable = SystemProperties.getBoolean("persist.exthm.screenocr", false);
+            boolean isScreenOCRenable = SystemProperties.getBoolean("persist.vendor.avium.screenocr", false);
             if(isScreenOCRenable){
                 startActivity(intent);
             }
